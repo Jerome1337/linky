@@ -1,26 +1,36 @@
 use serialport;
+use serialport::{DataBits, FlowControl, Parity, StopBits};
 use std::time::Duration;
-use std::io::BufReader;
-use std::io::BufRead;
 
 fn main() {
     println!("HELLO SERIAL");
 
-    let serial_port = serialport::new("/dev/ttyS0", 1200)
+    let mut serial_port = serialport::new("/dev/ttyS0", 1200)
+        .data_bits(DataBits::Seven)
+        .flow_control(FlowControl::None)
+        .parity(Parity::Even)
+        .stop_bits(StopBits::One)
         .timeout(Duration::from_millis(1000))
         .open()
         .expect("Failed to open port");
 
-    let mut reader = BufReader::new(serial_port);
-    let mut line = String::new();
+    let mut frame: Vec<u8> = Vec::new();
+    loop {
+        let mut serial_buf: Vec<u8> = vec![0; 1];
 
-    reader.read_line(&mut line).unwrap();
+        serial_port.read(serial_buf.as_mut_slice()).expect("Found no data!");
+        
+        //let test = &serial_buf[0];
+        if serial_buf == b"\x02" {
+            continue;
+        } else if serial_buf == b"\x03" {
+            let test = String::from_utf8_lossy(&frame);
+            println!("{}", test);
+            frame.clear();
 
-    while line.contains("b'\x02'") {
-        reader.read_line(&mut line).unwrap();
+            continue;
+        }
+
+        frame = [frame, serial_buf].concat();
     }
-
-    reader.read_line(&mut line).unwrap();
-
-    println!("{}", line);
 }
